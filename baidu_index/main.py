@@ -3,6 +3,7 @@
 
 import os
 import traceback
+import time
 
 import xlwt
 import chardet
@@ -12,6 +13,7 @@ from utils.log import logger
 from config import IniConfig
 from city import final_city_dict
 
+data_dict = dict()
 
 ini_config = IniConfig()
 index_type_dict = {
@@ -55,7 +57,7 @@ def main():
     if not os.path.exists(result_folder):
         os.makedirs(result_folder)
 
-    for keyword in task_list:
+    for index, keyword in enumerate(task_list):
         try:
             keyword = keyword.strip()
             if not keyword:
@@ -64,9 +66,17 @@ def main():
         except:
             print traceback.format_exc()
 
+    file_name = u'result-' \
+                + time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime(time.time())) \
+                + u'.xls'
+    file_name = file_name.encode(
+        ini_config.file_name_encoding, 'ignore'
+    )
+    file_path = os.path.join(result_folder, file_name)
+    write_excel(file_path)
 
-def parse_one_keyword(keyword, result_folder,
-                      baidu_browser):
+
+def parse_one_keyword(keyword, result_folder, baidu_browser):
     area_list = ini_config.area_list.split(',')
     area_list = [_.strip() for _ in area_list]
     type_list = ini_config.index_type_list.split(',')
@@ -90,36 +100,32 @@ def parse_one_keyword(keyword, result_folder,
                 type_name_zh
             )
 
-            file_name = file_name.encode(
-                ini_config.file_name_encoding, 'ignore'
-            )
-            file_path = os.path.join(result_folder, file_name)
-
             data_list = []
             for date in date_list:
                 value = baidu_index_dict[date]
                 data_list.append(
                     (keyword_unicode, date, type_name_zh, value)
                 )
-            write_excel(file_path, data_list)
+
+            data_dict[keyword_unicode] = data_list
+            # write_excel(file_path, data_list, keyword_unicode, index)
 
 
-def write_excel(excel_file, data_list):
+def write_excel(excel_file):
+    global data_dict
     wb = xlwt.Workbook()
     ws = wb.add_sheet(u'工作表1')
-    row = 0
-    ws.write(row, 0, u'关键词')
-    ws.write(row, 1, u'日期')
-    ws.write(row, 2, u'类型')
-    ws.write(row, 3, u'指数')
-    row = 1
-    for result in data_list:
-        col = 0
-        for item in result:
-            ws.write(row, col, item)
-            col += 1
-        row += 1
-
+    ws.write(0, 0, u'日期')
+    index = 1
+    for key, value in data_dict.items():
+        ws.write(0, index, key)
+        row = 1
+        for result in value:
+            if index == 1:
+                ws.write(row, 0, result[1])
+            ws.write(row, index, result[3])
+            row += 1
+        index += 1
     wb.save(excel_file)
 
 
